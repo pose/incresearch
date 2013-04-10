@@ -1,4 +1,7 @@
-import tty, select, sys, termios
+import tty
+import select
+import sys
+import termios
 
 from sh import egrep
 
@@ -6,12 +9,6 @@ from sh import egrep
 # TODO Proper encapsulation
 # TODO Polish threading model
 
-def isData():
-    return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
-
-old_settings = termios.tcgetattr(sys.stdin)
-s = ''
-p = None
 
 class Interact(object):
     def __init__(self):
@@ -20,67 +17,71 @@ class Interact(object):
 
     def __call__(self, line, stdin, process):
         if self.count >= 10:
-            try:
-                p.kill()
-            except:
-                pass
-            finally:
-                self.count = 0
-                print
+            process.kill()
+            self.count = 0
+            print
         else:
             self.count += 1
             if not self.muted:
                 print line,
             else:
-                try:
-                    p.kill()
-                except:
-                    pass
-                finally:
-                    self.count = 0
-                    print
+                process.kill()
+                self.count = 0
+                print
 
     def mute(self):
         self.muted = True
 
 
-try:
-    tty.setcbreak(sys.stdin.fileno())
-    old = None
-    while 1:
-        if isData():
-            c = sys.stdin.read(1)
-            s = s + c
-            if c == '\x1b': # ESC
-                break
-            if c == '\x0A': # Return
-                continue;
-            if c == '\x7f': # Backspace
-                s = s[:-2]
+class TermSearch(object):
+    def __init__(self):
+        self.s = ''
+        self.old_settings = termios.tcgetattr(sys.stdin)
+        self.old = None
 
-            if s != '':
-                try:
-                    n = Interact()
-                    p = egrep(
+    def start(self):
+        try:
+            tty.setcbreak(sys.stdin.fileno())
+            while 1:
+                if self.isData():
+                    c = sys.stdin.read(1)
+                    self.s += c
+                    if c == '\x1b': # ESC
+                        break
+                    if c == '\x0A': # Return
+                        continue;
+                    if c == '\x7f': # Backspace
+                        self.s = self.s[:-2]
+
+                    if self.s != '':
+                        n = Interact()
+                        egrep(
                             # Recursive
                             "-R",
                             # Case insensitive
                             "-i",
                             # Prefix line number
                             "-n",
+                            # Ignore binary
+                            "-I",
                             # Max 3 results per file
                             "-m", 3,
                             # 2 lines of context
                             "-C", 2,
-                            s, "../../mule/habitat/web-ui/",_bg=True,_out=n)
-                    if old is not None:
-                        old.mute()
-                        print
-                        print '-----------------------------------------'
-                        print s
-                    old = n
-                except:
-                    pass
+                            self.s, "../habitat/web-ui/",_bg=True,_out=n)
+                        print 'a'
+                        if self.old is not None:
+                            self.old.mute()
+                            print
+                            print '-----------------------------------------'
+                            print self.s
+                        self.old = n
+        
+        finally:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
 
-finally:
-    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+    def isData(self):
+        return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
+
+if __name__ == '__main__':
+    TermSearch().start()
