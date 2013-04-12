@@ -1,3 +1,4 @@
+import os
 import tty
 import select
 import sys
@@ -16,7 +17,7 @@ class Interact(object):
         self.muted = False
 
     def __call__(self, line, stdin, process):
-        if self.count >= 10:
+        if self.count >= 100:
             process.kill()
             self.count = 0
             print
@@ -68,8 +69,9 @@ class TermSearch(object):
                             "-m", 3,
                             # 2 lines of context
                             "-C", 2,
-                            self.s, "../habitat/web-ui/",_bg=True,_out=n)
-                        print 'a'
+
+                            "-l",
+                            self.s, os.environ['HABITAT_PATH'] + "/web-ui/app",_bg=True,_out=n)
                         if self.old is not None:
                             self.old.mute()
                             print
@@ -81,7 +83,7 @@ class TermSearch(object):
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
 
     def isData(self):
-        return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
+        return select.select([sys.stdin], [], [], 250) == ([sys.stdin], [], [])
 
 if __name__ == '__main__':
     TermSearch().start()
