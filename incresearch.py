@@ -35,10 +35,11 @@ class Interact(object):
 
 
 class TermSearch(object):
-    def __init__(self):
+    def __init__(self, path):
         self.s = ''
         self.old_settings = termios.tcgetattr(sys.stdin)
         self.old = None
+        self.path = path
 
     def start(self):
         try:
@@ -69,9 +70,7 @@ class TermSearch(object):
                             "-m", 3,
                             # 2 lines of context
                             "-C", 2,
-
-                            "-l",
-                            self.s, os.environ['HABITAT_PATH'] + "/web-ui/app",_bg=True,_out=n)
+                            self.s, self.path, _bg=True, _out=n)
                         if self.old is not None:
                             self.old.mute()
                             print
@@ -86,4 +85,7 @@ class TermSearch(object):
         return select.select([sys.stdin], [], [], 250) == ([sys.stdin], [], [])
 
 if __name__ == '__main__':
-    TermSearch().start()
+    if len(sys.argv) == 2:
+        TermSearch(sys.argv[1]).start()
+    else:
+        TermSearch().start()
