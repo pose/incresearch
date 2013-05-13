@@ -41,6 +41,14 @@ class TermSearch(object):
         self.old = None
         self.path = path
 
+    def escape(self, s):
+        escape_chars = ['(', ')', '.']
+
+        for c in escape_chars:
+            return s.replace(c, '\\' + c)
+
+        return s
+
     def start(self):
         try:
             tty.setcbreak(sys.stdin.fileno())
@@ -70,7 +78,7 @@ class TermSearch(object):
                             "-m", 3,
                             # 2 lines of context
                             "-C", 2,
-                            self.s, self.path, _bg=True, _out=n)
+                            self.escape(self.s), self.path, _bg=True, _out=n)
                         if self.old is not None:
                             self.old.mute()
                             print
