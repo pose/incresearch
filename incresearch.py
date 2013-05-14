@@ -3,21 +3,21 @@ import tty
 import select
 import sys
 import termios
+import signal
 
 from sh import egrep
 
-# TODO Better error handling
 # TODO Proper encapsulation
-# TODO Polish threading model
 
 
 class Interact(object):
     def __init__(self):
         self.count = 0
         self.muted = False
+        self.limit = 0
 
     def __call__(self, line, stdin, process):
-        if self.count >= 100:
+        if self.limit > 0 and self.count >= self.limit:
             process.kill()
             self.count = 0
             print
@@ -52,12 +52,10 @@ class TermSearch(object):
     def start(self):
         try:
             tty.setcbreak(sys.stdin.fileno())
-            while 1:
+            while True:
                 if self.isData():
                     c = sys.stdin.read(1)
                     self.s += c
-                    if c == '\x1b': # ESC
-                        break
                     if c == '\x0A': # Return
                         continue;
                     if c == '\x7f': # Backspace
@@ -78,6 +76,8 @@ class TermSearch(object):
                             "-m", 3,
                             # 2 lines of context
                             "-C", 2,
+                            # Only list files
+                            "-l",
                             self.escape(self.s), self.path, _bg=True, _out=n)
                         if self.old is not None:
                             self.old.mute()
@@ -93,7 +93,12 @@ class TermSearch(object):
         return select.select([sys.stdin], [], [], 250) == ([sys.stdin], [], [])
 
 if __name__ == '__main__':
+    def signal_handler(signal, frame):
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
     if len(sys.argv) == 2:
         TermSearch(sys.argv[1]).start()
     else:
         TermSearch().start()
+    
